@@ -13,12 +13,12 @@ public class StringSerializer implements CacheSerializer<String>{
     buf.putInt(bytes.length);
     buf.put(bytes);
   }
-  
+
   @Override
   public String deserialize(ByteBuffer buf) {
     int len = buf.getInt();
     byte[] bytes = new byte[len];
-    buf.get(bytes); 
+    buf.get(bytes);
     return new String(bytes, StandardCharsets.UTF_8);
   }
 

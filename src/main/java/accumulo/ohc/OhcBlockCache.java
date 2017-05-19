@@ -17,7 +17,7 @@ import com.github.benmanes.caffeine.cache.stats.CacheStats;
 public class OhcBlockCache implements BlockCache {
 
   private Cache<String, CacheEntry> onHeapCache;
-  private OHCache<String,byte[]> cache;
+  private OHCache<String,byte[]> offHeapCache;
   private CacheType type;
 
   //TODO remove
@@ -25,25 +25,28 @@ public class OhcBlockCache implements BlockCache {
   private int offHeapMiss;
   private int request;
 
+  private long onHeapSize;
 
 
   OhcBlockCache(long size, CacheType type){
     this.type = type;
     OHCacheBuilder<String, byte[]> builder = OHCacheBuilder.newBuilder();
-    cache = builder.keySerializer(new StringSerializer())
+    offHeapCache = builder.keySerializer(new StringSerializer())
         .valueSerializer(new BytesSerializer())
         .capacity(size)
         .build();
 
+    onHeapSize = size/10;
+
     Weigher<String,CacheEntry> weigher = (k,v) -> v.getBuffer().length + k.length();
-    onHeapCache = Caffeine.newBuilder().maximumWeight(size/10).weigher(weigher).recordStats().build();
+    onHeapCache = Caffeine.newBuilder().maximumWeight(onHeapSize).weigher(weigher).recordStats().build();
   }
 
   @Override
   public CacheEntry cacheBlock(String blockName, byte[] buf, boolean inMemory) {
     OhcCacheEntry ce = new OhcCacheEntry(buf, true);
     onHeapCache.put(blockName, ce);
-    cache.putIfAbsent(blockName, buf);
+    offHeapCache.putIfAbsent(blockName, buf);
     return ce;
   }
 
@@ -58,12 +61,13 @@ public class OhcBlockCache implements BlockCache {
 
     CacheEntry ce = onHeapCache.getIfPresent(blockName);
     if(ce != null) {
+      //TODO make off heap cache aware this block is being used?
       return ce;
     }
 
     onHeapMiss++;
 
-    byte[] buffer = cache.get(blockName);
+    byte[] buffer = offHeapCache.get(blockName);
     if(buffer == null) {
       offHeapMiss++;
       return null;
@@ -77,14 +81,14 @@ public class OhcBlockCache implements BlockCache {
 
   @Override
   public long getMaxSize() {
-    return cache.capacity();
+    return offHeapCache.capacity();
   }
 
   @Override
   public Stats getStats() {
 
     CacheStats heapStats = onHeapCache.stats();
-    OHCacheStats ohcStats = cache.stats();
+    OHCacheStats ohcStats = offHeapCache.stats();
 
     return new Stats(){
 
@@ -107,14 +111,19 @@ public class OhcBlockCache implements BlockCache {
     onHeapCache.invalidateAll();
     onHeapCache.cleanUp();
     System.out.println(onHeapCache.stats());
-    System.out.println(cache.stats());
+    System.out.println(offHeapCache.stats());
     System.out.printf("onMiss:  %,d offMiss: %,d request: %,d\n", onHeapMiss, offHeapMiss, request);
     try {
-      cache.close();
+      offHeapCache.close();
     } catch (IOException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
+  }
+
+  @Override
+  public long getMaxHeapSize() {
+    return onHeapSize;
   }
 
 }
