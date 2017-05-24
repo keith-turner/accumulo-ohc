@@ -4,13 +4,18 @@ import org.apache.accumulo.core.conf.AccumuloConfiguration;
 import org.apache.accumulo.core.file.blockfile.cache.BlockCache;
 import org.apache.accumulo.core.file.blockfile.cache.BlockCacheManager;
 import org.apache.accumulo.core.file.blockfile.cache.CacheType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OhcCacheManager extends BlockCacheManager {
 
+  private static final Logger LOG = LoggerFactory.getLogger(OhcCacheManager.class);
+
   @Override
   protected BlockCache createCache(AccumuloConfiguration conf, CacheType type) {
-    OhcCacheConfiguration config = new OhcCacheConfiguration(conf, type);
-    return new OhcBlockCache(config.getMaxSize(), type);
+	OhcCacheConfiguration cc = new OhcCacheConfiguration(conf, type);
+	LOG.info("Creating {} cache with configuration {}", type, cc);
+    return new OhcBlockCache(cc);
   }
 
   @Override
