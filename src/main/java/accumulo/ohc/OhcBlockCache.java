@@ -3,8 +3,6 @@ package accumulo.ohc;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 
@@ -74,11 +72,6 @@ public class OhcBlockCache implements BlockCache {
         }
       }
     }).build(new CacheLoader<String,CacheEntry>() {
-      @Override
-      public CompletableFuture<CacheEntry> asyncLoad(String arg0, Executor arg1) {
-        return null;
-      }
-
       @Override
       public CacheEntry load(String key) throws Exception {
         byte[] buffer = offHeapCache.get(key);
