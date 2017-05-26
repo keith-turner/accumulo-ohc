@@ -10,21 +10,24 @@ import org.apache.accumulo.core.file.blockfile.cache.BlockCache;
 import org.apache.accumulo.core.file.blockfile.cache.CacheEntry;
 import org.caffinitas.ohc.OHCache;
 import org.caffinitas.ohc.OHCacheBuilder;
+import org.caffinitas.ohc.OHCacheStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.CacheWriter;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Weigher;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import com.google.common.annotations.VisibleForTesting;
 
 public class OhcBlockCache implements BlockCache {
 
   private static final Logger LOG = LoggerFactory.getLogger(OhcBlockCache.class);
 
-  private final Cache<String,CacheEntry> onHeapCache;
+  private final LoadingCache<String,CacheEntry> onHeapCache;
   private final OHCache<String,byte[]> offHeapCache;
 
   private LongAdder misses;
@@ -99,7 +102,7 @@ public class OhcBlockCache implements BlockCache {
   @Override
   public CacheEntry getBlock(String blockName) {
 
-    CacheEntry ce = onHeapCache.getIfPresent(blockName);
+    CacheEntry ce = onHeapCache.get(blockName);
     if (ce != null) {
       hits.increment();
       return ce;
@@ -156,4 +159,13 @@ public class OhcBlockCache implements BlockCache {
     return this.onHeapSize;
   }
 
+  @VisibleForTesting
+  CacheStats getOnHeapStats() {
+    return onHeapCache.stats();
+  }
+
+  @VisibleForTesting
+  OHCacheStats getOffHeapStats() {
+    return offHeapCache.stats();
+  }
 }
