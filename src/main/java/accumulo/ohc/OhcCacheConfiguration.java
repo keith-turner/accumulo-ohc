@@ -32,6 +32,10 @@ public class OhcCacheConfiguration extends BlockCacheConfiguration {
     super(conf, type, PROPERTY_PREFIX);
     
     this.maxOffHeapSize = get(OFF_HEAP_CACHE_SIZE).map(Long::valueOf).filter(f -> f > 0).orElse(DEFAULT_OFF_HEAP_CACHE_SIZE);
+    if (this.maxOffHeapSize == DEFAULT_OFF_HEAP_CACHE_SIZE) {
+      String property = getPrefix(type, PROPERTY_PREFIX) + OFF_HEAP_CACHE_SIZE;
+      throw new RuntimeException("OhcBlockCache configuration error, must specify property: " + property);
+    }
     this.onHeapExpirationTime = get(ON_HEAP_EXPIRATION_TIME).map(Integer::valueOf).filter(f -> f > 0).orElse(DEFAULT_ON_HEAP_CACHE_TIME);
     this.onHeapExpirationTimeUnit = get(ON_HEAP_EXPIRATION_TIME_UNITS).map(TimeUnit::valueOf).filter(f -> f != null).orElse(DEFAULT_ON_HEAP_CACHE_TIME_UNIT);
     this.offHeapExpirationTime = get(OFF_HEAP_EXPIRATION_TIME).map(Integer::valueOf).filter(f -> f > 0).orElse(DEFAULT_OFF_HEAP_CACHE_TIME);
@@ -61,12 +65,11 @@ public class OhcCacheConfiguration extends BlockCacheConfiguration {
   @Override
   public String toString() {
 	return super.toString()
-			+ ", offHeapEnabled: " + (0 != this.maxOffHeapSize)
 			+ ", maxOffHeapSize: " + this.maxOffHeapSize
 			+ ", onHeapExpirationTime: " + this.onHeapExpirationTime
 			+ ", onHeapExpriationTimeUnits " + this.onHeapExpirationTimeUnit
 			+ ", offHeapExpirationTime: " + this.offHeapExpirationTime
 			+ ", offHeapExpirationTimeUnits: " + this.offHeapExpirationTimeUnit;
-}
+  }
 
 }
