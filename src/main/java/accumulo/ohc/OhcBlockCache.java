@@ -1,6 +1,8 @@
 package accumulo.ohc;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.LongAdder;
 
 import org.apache.accumulo.core.file.blockfile.cache.BlockCache;
@@ -11,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.CacheWriter;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
@@ -23,16 +26,15 @@ public class OhcBlockCache implements BlockCache {
   private final OHCache<String,byte[]> offHeapCache;
 
   private LongAdder misses;
-  private LongAdder onHeapHits;
-  private LongAdder offHeapHits;
+  private LongAdder hits;
 
   private final long onHeapSize;
 
   OhcBlockCache(final OhcCacheConfiguration config) {
 
+    // TODO are the redundant? will they always be the same as onheap stats?
     misses = new LongAdder();
-    onHeapHits = new LongAdder();
-    offHeapHits = new LongAdder();
+    hits = new LongAdder();
 
     config.getOffHeapProperties().forEach((k, v) -> {
       System.setProperty(OHCacheBuilder.SYSTEM_PROPERTY_PREFIX + k, v);
@@ -43,19 +45,37 @@ public class OhcBlockCache implements BlockCache {
 
     this.onHeapSize = config.getMaxSize();
     onHeapCache = Caffeine.newBuilder().initialCapacity((int) Math.ceil(1.2 * config.getMaxSize() / config.getBlockSize()))
-        .expireAfterAccess(config.getOnHeapExpirationTime(), config.getOnHeapExpirationTimeUnit()).maximumSize(config.getMaxSize())
+        .expireAfterAccess(config.getOnHeapExpirationTime(), config.getOnHeapExpirationTimeUnit()).maximumSize(config.getMaxSize()).recordStats()
         .writer(new CacheWriter<String,CacheEntry>() {
           @Override
-          public void write(String key, CacheEntry value) {}
+          public void write(String key, CacheEntry value) {
+            // don't write to the off-heap cache
+          }
 
           @Override
           public void delete(String key, CacheEntry block, RemovalCause cause) {
             // this is called before the entry is actually removed from the cache
             if (cause.wasEvicted()) {
+              LOG.trace("Block {} evicted from on-heap cache, putting to off-heap cache", key);
               offHeapCache.put(key, block.getBuffer());
             }
           }
-        }).build();
+        }).build(new CacheLoader<String,CacheEntry>() {
+          @Override
+          public CompletableFuture<CacheEntry> asyncLoad(String arg0, Executor arg1) {
+            return null;
+          }
+
+          @Override
+          public CacheEntry load(String key) throws Exception {
+            byte[] buffer = offHeapCache.get(key);
+            if (buffer == null) {
+              return null;
+            }
+            LOG.trace("Promoting block {} to on-heap cache", key);
+            return new OhcCacheEntry(buffer, true);
+          }
+        });
   }
 
   @Override
@@ -75,21 +95,11 @@ public class OhcBlockCache implements BlockCache {
 
     CacheEntry ce = onHeapCache.getIfPresent(blockName);
     if (ce != null) {
-      onHeapHits.increment();
+      hits.increment();
       return ce;
     }
 
-    byte[] buffer = offHeapCache.get(blockName);
-    if (buffer == null) {
-      misses.increment();
-      return null;
-    }
-
-    LOG.trace("Promoting block {} to on-heap cache", blockName);
-    ce = new OhcCacheEntry(buffer, true);
-    onHeapCache.put(blockName, ce);
-
-    offHeapHits.increment();
+    misses.increment();
     return ce;
   }
 
@@ -101,20 +111,19 @@ public class OhcBlockCache implements BlockCache {
   @Override
   public Stats getStats() {
 
-    long onHits = onHeapHits.sum();
-    long offHits = offHeapHits.sum();
+    long hits = this.hits.sum();
     long misses = this.misses.sum();
 
     return new Stats() {
 
       @Override
       public long hitCount() {
-        return onHits + offHits;
+        return hits;
       }
 
       @Override
       public long requestCount() {
-        return onHits + offHits + misses;
+        return hits + misses;
       }
 
     };
@@ -124,22 +133,15 @@ public class OhcBlockCache implements BlockCache {
     onHeapCache.invalidateAll();
     onHeapCache.cleanUp();
     System.out.println(onHeapCache.stats());
-    if (null != this.offHeapCache) {
-      System.out.println(offHeapCache.stats());
-    }
+    System.out.println(offHeapCache.stats());
 
-    long onHits = onHeapHits.sum();
-    long offHits = offHeapHits.sum();
-    long misses = this.misses.sum();
+    LOG.trace("hits:  %,d misses : %,d\n", hits.sum(), misses.sum());
 
-    LOG.trace("onHits:  %,d offHits: %,d request: %,d\n", onHits, offHits, onHits + offHits + misses);
-    if (null != this.offHeapCache) {
-      try {
-        offHeapCache.close();
-      } catch (IOException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
+    try {
+      offHeapCache.close();
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
     }
   }
 
