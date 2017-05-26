@@ -1,9 +1,12 @@
 package accumulo.ohc;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
 
 import org.apache.accumulo.core.file.blockfile.cache.BlockCache;
 import org.apache.accumulo.core.file.blockfile.cache.CacheEntry;
@@ -17,6 +20,7 @@ import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.CacheWriter;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
+import com.github.benmanes.caffeine.cache.Weigher;
 
 public class OhcBlockCache implements BlockCache {
 
@@ -43,39 +47,48 @@ public class OhcBlockCache implements BlockCache {
     OHCacheBuilder<String,byte[]> builder = OHCacheBuilder.newBuilder();
     offHeapCache = builder.keySerializer(new StringSerializer()).valueSerializer(new BytesSerializer()).build();
 
-    this.onHeapSize = config.getMaxSize();
-    onHeapCache = Caffeine.newBuilder().initialCapacity((int) Math.ceil(1.2 * config.getMaxSize() / config.getBlockSize()))
-        .expireAfterAccess(config.getOnHeapExpirationTime(), config.getOnHeapExpirationTimeUnit()).maximumSize(config.getMaxSize()).recordStats()
-        .writer(new CacheWriter<String,CacheEntry>() {
-          @Override
-          public void write(String key, CacheEntry value) {
-            // don't write to the off-heap cache
-          }
+    Map<String,String> onHeapProps = new HashMap<>(config.getOnHeapProperties());
+    onHeapProps.computeIfAbsent("maximumWeight", k -> config.getMaxSize() + "");
+    onHeapProps.computeIfAbsent("initialCapacity", k -> "" + (int) Math.ceil(1.2 * config.getMaxSize() / config.getBlockSize()));
+    // Allow setting recordStats to true/false, a deviation from CaffineSpec. This is done because a default of 'on' is wanted, but want to allow user to
+    // override.
+    onHeapProps.compute("recordStats", (k, v) -> v == null || v.equals("") || v.equals("true") ? "" : null);
 
-          @Override
-          public void delete(String key, CacheEntry block, RemovalCause cause) {
-            // this is called before the entry is actually removed from the cache
-            if (cause.wasEvicted()) {
-              LOG.trace("Block {} evicted from on-heap cache, putting to off-heap cache", key);
-              offHeapCache.put(key, block.getBuffer());
-            }
-          }
-        }).build(new CacheLoader<String,CacheEntry>() {
-          @Override
-          public CompletableFuture<CacheEntry> asyncLoad(String arg0, Executor arg1) {
-            return null;
-          }
+    this.onHeapSize = Long.valueOf(onHeapProps.get("maximumWeight"));
 
-          @Override
-          public CacheEntry load(String key) throws Exception {
-            byte[] buffer = offHeapCache.get(key);
-            if (buffer == null) {
-              return null;
-            }
-            LOG.trace("Promoting block {} to on-heap cache", key);
-            return new OhcCacheEntry(buffer, true);
-          }
-        });
+    String specification = onHeapProps.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining(","));
+
+    Weigher<String,CacheEntry> weigher = (k, v) -> 2 * k.length() + v.getBuffer().length;
+    onHeapCache = Caffeine.from(specification).weigher(weigher).writer(new CacheWriter<String,CacheEntry>() {
+      @Override
+      public void write(String key, CacheEntry value) {
+        // don't write to the off-heap cache
+      }
+
+      @Override
+      public void delete(String key, CacheEntry block, RemovalCause cause) {
+        // this is called before the entry is actually removed from the cache
+        if (cause.wasEvicted()) {
+          LOG.trace("Block {} evicted from on-heap cache, putting to off-heap cache", key);
+          offHeapCache.put(key, block.getBuffer());
+        }
+      }
+    }).build(new CacheLoader<String,CacheEntry>() {
+      @Override
+      public CompletableFuture<CacheEntry> asyncLoad(String arg0, Executor arg1) {
+        return null;
+      }
+
+      @Override
+      public CacheEntry load(String key) throws Exception {
+        byte[] buffer = offHeapCache.get(key);
+        if (buffer == null) {
+          return null;
+        }
+        LOG.trace("Promoting block {} to on-heap cache", key);
+        return new OhcCacheEntry(buffer, true);
+      }
+    });
   }
 
   @Override
