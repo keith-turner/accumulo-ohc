@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import org.apache.accumulo.core.file.blockfile.cache.BlockCache;
 import org.apache.accumulo.core.file.blockfile.cache.CacheEntry;
+import org.apache.accumulo.core.file.blockfile.cache.ConcurrentLoadingBlockCache;
 import org.caffinitas.ohc.OHCache;
 import org.caffinitas.ohc.OHCacheBuilder;
 import org.caffinitas.ohc.OHCacheStats;
@@ -23,7 +24,7 @@ import com.github.benmanes.caffeine.cache.Weigher;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.annotations.VisibleForTesting;
 
-public class OhcBlockCache implements BlockCache {
+public class OhcBlockCache extends ConcurrentLoadingBlockCache implements BlockCache {
 
   private static final Logger LOG = LoggerFactory.getLogger(OhcBlockCache.class);
 
@@ -113,6 +114,11 @@ public class OhcBlockCache implements BlockCache {
   }
 
   @Override
+  protected CacheEntry getBlockNoStats(String blockName) {
+    return onHeapCache.get(blockName);
+  }
+
+  @Override
   public long getMaxSize() {
     return offHeapCache.capacity() + onHeapSize;
   }
@@ -167,5 +173,10 @@ public class OhcBlockCache implements BlockCache {
   @VisibleForTesting
   OHCacheStats getOffHeapStats() {
     return offHeapCache.stats();
+  }
+
+  @Override
+  protected int getMaxEntrySize() {
+    return (int) Math.min(Integer.MAX_VALUE, getMaxHeapSize());
   }
 }

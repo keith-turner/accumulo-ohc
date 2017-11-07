@@ -79,12 +79,7 @@ public class TestEviction {
     for (String fid : frequent) {
       CacheEntry ce = obc.getBlock(fid);
       Assert.assertNotNull(ce);
-      AtomicLong idx = (AtomicLong) ce.getIndex();
-      if (idx == null) {
-        idx = new AtomicLong(0);
-        ce.setIndex(idx);
-      }
-
+      AtomicLong idx = ce.getIndex(() -> new AtomicLong(0));
       idx.incrementAndGet();
     }
   }
@@ -120,7 +115,7 @@ public class TestEviction {
     for (String fid : frequent) {
       CacheEntry ce = obc.getBlock(fid);
       Assert.assertNotNull(ce);
-      AtomicLong idx = (AtomicLong) ce.getIndex();
+      AtomicLong idx = ce.getIndex(() -> null);
       Assert.assertNotNull(idx);
       Assert.assertEquals(fcount, idx.get());
     }
@@ -140,7 +135,5 @@ public class TestEviction {
     Assert.assertTrue(obc.getOffHeapStats().getEvictionCount() == 0);
     Assert.assertTrue(obc.getOffHeapStats().getHitCount() > 0);
     Assert.assertTrue(obc.getOffHeapStats().getMissCount() == 0);
-
   }
-
 }

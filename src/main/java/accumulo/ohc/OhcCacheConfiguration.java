@@ -20,13 +20,14 @@ public class OhcCacheConfiguration {
   private final long maxSize;
   private final long blockSize;
 
-  // TODO it would be best if CacheManager API didn't use AccumuloConfiguration
   public OhcCacheConfiguration(Configuration conf, CacheType type) {
 
     Map<String,String> allProps = conf.getProperties(PROPERTY_PREFIX, type);
 
     Map<String,String> onHeapProps = new HashMap<>();
     Map<String,String> offHeapProps = new HashMap<>();
+
+    System.out.println("all props " + allProps);
 
     allProps.forEach((k, v) -> {
       if (k.startsWith(ON_HEAP_PREFIX)) {

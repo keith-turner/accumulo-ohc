@@ -1,33 +1,25 @@
 package accumulo.ohc;
 
+import java.util.function.Supplier;
+
 import org.apache.accumulo.core.file.blockfile.cache.CacheEntry;
+import org.apache.accumulo.core.file.blockfile.cache.SoftIndexCacheEntry;
 
-public class OhcCacheEntry implements CacheEntry {
+public class OhcCacheEntry extends SoftIndexCacheEntry implements CacheEntry {
 
-  private byte[] buf;
-  private Object index;
   private boolean allowIndex;
 
-
-  OhcCacheEntry(byte[] buf, boolean allowIndex){
-    this.buf = buf;
+  OhcCacheEntry(byte[] buf, boolean allowIndex) {
+    super(buf);
     this.allowIndex = allowIndex;
   }
 
   @Override
-  public byte[] getBuffer() {
-    return buf;
-  }
-
-  @Override
-  public Object getIndex() {
-    return index;
-  }
-
-  @Override
-  public void setIndex(Object idx) {
-    if(allowIndex) {
-      this.index = idx;
+  public <T> T getIndex(Supplier<T> supplier) {
+    if (allowIndex) {
+      return super.getIndex(supplier);
     }
+
+    return null;
   }
 }
