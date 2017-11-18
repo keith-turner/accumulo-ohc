@@ -1,14 +1,16 @@
 package accumulo.ohc;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.LongAdder;
+import java.util.Map.Entry;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.apache.accumulo.core.file.blockfile.cache.BlockCache;
 import org.apache.accumulo.core.file.blockfile.cache.CacheEntry;
-import org.apache.accumulo.core.file.blockfile.cache.ConcurrentLoadingBlockCache;
+import org.apache.accumulo.core.file.blockfile.cache.impl.ClassSize;
 import org.caffinitas.ohc.OHCache;
 import org.caffinitas.ohc.OHCacheBuilder;
 import org.caffinitas.ohc.OHCacheStats;
@@ -24,23 +26,16 @@ import com.github.benmanes.caffeine.cache.Weigher;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.annotations.VisibleForTesting;
 
-public class OhcBlockCache extends ConcurrentLoadingBlockCache implements BlockCache {
+public class OhcBlockCache implements BlockCache {
 
   private static final Logger LOG = LoggerFactory.getLogger(OhcBlockCache.class);
 
-  private final LoadingCache<String,CacheEntry> onHeapCache;
+  private final LoadingCache<String,Block> onHeapCache;
   private final OHCache<String,byte[]> offHeapCache;
-
-  private LongAdder misses;
-  private LongAdder hits;
 
   private final long onHeapSize;
 
   OhcBlockCache(final OhcCacheConfiguration config) {
-
-    // TODO are the redundant? will they always be the same as onheap stats?
-    misses = new LongAdder();
-    hits = new LongAdder();
 
     config.getOffHeapProperties().forEach((k, v) -> {
       System.setProperty(OHCacheBuilder.SYSTEM_PROPERTY_PREFIX + k, v);
@@ -60,62 +55,143 @@ public class OhcBlockCache extends ConcurrentLoadingBlockCache implements BlockC
 
     String specification = onHeapProps.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining(","));
 
-    Weigher<String,CacheEntry> weigher = (k, v) -> 2 * k.length() + v.getBuffer().length;
-    onHeapCache = Caffeine.from(specification).weigher(weigher).writer(new CacheWriter<String,CacheEntry>() {
+    Weigher<String,Block> weigher = (blockName, block) -> {
+      int keyWeight = ClassSize.align(blockName.length()) + ClassSize.STRING;
+      return keyWeight + block.weight();
+    };
+    onHeapCache = Caffeine.from(specification).weigher(weigher).writer(new CacheWriter<String,Block>() {
       @Override
-      public void write(String key, CacheEntry value) {
+      public void write(String key, Block value) {
         // don't write to the off-heap cache
       }
 
       @Override
-      public void delete(String key, CacheEntry block, RemovalCause cause) {
+      public void delete(String key, Block block, RemovalCause cause) {
         // this is called before the entry is actually removed from the cache
         if (cause.wasEvicted()) {
           LOG.trace("Block {} evicted from on-heap cache, putting to off-heap cache", key);
           offHeapCache.put(key, block.getBuffer());
         }
       }
-    }).build(new CacheLoader<String,CacheEntry>() {
+    }).build(new CacheLoader<String,Block>() {
       @Override
-      public CacheEntry load(String key) throws Exception {
+      public Block load(String key) throws Exception {
         byte[] buffer = offHeapCache.get(key);
         if (buffer == null) {
           return null;
         }
         LOG.trace("Promoting block {} to on-heap cache", key);
-        return new OhcCacheEntry(buffer, true);
+        return new Block(buffer);
       }
     });
   }
 
   @Override
-  public CacheEntry cacheBlock(String blockName, byte[] buf, boolean inMemory) {
-    OhcCacheEntry ce = new OhcCacheEntry(buf, true);
-    onHeapCache.put(blockName, ce);
-    return ce;
-  }
-
-  @Override
   public CacheEntry cacheBlock(String blockName, byte[] buf) {
-    return cacheBlock(blockName, buf, false);
+    return wrap(blockName, onHeapCache.asMap().computeIfAbsent(blockName, k -> new Block(buf)));
   }
 
   @Override
   public CacheEntry getBlock(String blockName) {
+    return wrap(blockName, onHeapCache.get(blockName));
+  }
 
-    CacheEntry ce = onHeapCache.get(blockName);
-    if (ce != null) {
-      hits.increment();
-      return ce;
+  private CacheEntry wrap(String cacheKey, Block block) {
+    if (block != null) {
+      return new TlfuCacheEntry(cacheKey, block);
     }
 
-    misses.increment();
-    return ce;
+    return null;
+  }
+
+  private class TlfuCacheEntry implements CacheEntry {
+
+    private final String cacheKey;
+    private final Block block;
+
+    TlfuCacheEntry(String k, Block b) {
+      this.cacheKey = k;
+      this.block = b;
+    }
+
+    @Override
+    public byte[] getBuffer() {
+      return block.getBuffer();
+    }
+
+    @Override
+    public <T extends Weighbable> T getIndex(Supplier<T> supplier) {
+      return block.getIndex(supplier);
+    }
+
+    @Override
+    public void indexWeightChanged() {
+      if (block.indexWeightChanged()) {
+        // update weight
+        onHeapCache.put(cacheKey, block);
+      }
+    }
+  }
+
+  private Block load(String key, Loader loader, Map<String,byte[]> resolvedDeps) {
+
+    byte[] data = offHeapCache.get(key);
+
+    if (data == null) {
+      data = loader.load((int) Math.min(Integer.MAX_VALUE, this.onHeapSize), resolvedDeps);
+      if (data == null) {
+        return null;
+      }
+    }
+    return new Block(data);
+  }
+
+  private Map<String,byte[]> resolveDependencies(Map<String,Loader> deps) {
+    if (deps.size() == 1) {
+      Entry<String,Loader> entry = deps.entrySet().iterator().next();
+      CacheEntry ce = getBlock(entry.getKey(), entry.getValue());
+      if (ce == null) {
+        return null;
+      }
+      return Collections.singletonMap(entry.getKey(), ce.getBuffer());
+    } else {
+      HashMap<String,byte[]> resolvedDeps = new HashMap<>();
+      for (Entry<String,Loader> entry : deps.entrySet()) {
+        CacheEntry ce = getBlock(entry.getKey(), entry.getValue());
+        if (ce == null) {
+          return null;
+        }
+        resolvedDeps.put(entry.getKey(), ce.getBuffer());
+      }
+      return resolvedDeps;
+    }
   }
 
   @Override
-  protected CacheEntry getBlockNoStats(String blockName) {
-    return onHeapCache.get(blockName);
+  public CacheEntry getBlock(String blockName, Loader loader) {
+    Map<String,Loader> deps = loader.getDependencies();
+    Block block;
+    if (deps.size() == 0) {
+      block = onHeapCache.get(blockName, k -> load(blockName, loader, Collections.emptyMap()));
+    } else {
+      // This code path exist to handle the case where dependencies may need to be loaded. Loading dependencies will access the cache. Cache load functions
+      // should not access the cache.
+      block = onHeapCache.getIfPresent(blockName);
+
+      if (block == null) {
+        // Load dependencies outside of cache load function.
+        Map<String,byte[]> resolvedDeps = resolveDependencies(deps);
+        if (resolvedDeps == null) {
+          return null;
+        }
+
+        // Use asMap because it will not increment stats, getIfPresent recorded a miss above. Use computeIfAbsent because it is possible another thread loaded
+        // the data since this thread called getIfPresent.
+        block = onHeapCache.asMap().computeIfAbsent(blockName, k -> load(blockName, loader, resolvedDeps));
+      }
+    }
+
+    return wrap(blockName, block);
   }
 
   @Override
@@ -126,19 +202,18 @@ public class OhcBlockCache extends ConcurrentLoadingBlockCache implements BlockC
   @Override
   public Stats getStats() {
 
-    long hits = this.hits.sum();
-    long misses = this.misses.sum();
+    CacheStats stats = onHeapCache.stats();
 
     return new Stats() {
 
       @Override
       public long hitCount() {
-        return hits;
+        return stats.hitCount();
       }
 
       @Override
       public long requestCount() {
-        return hits + misses;
+        return stats.requestCount();
       }
 
     };
@@ -147,10 +222,9 @@ public class OhcBlockCache extends ConcurrentLoadingBlockCache implements BlockC
   public void stop() {
     onHeapCache.invalidateAll();
     onHeapCache.cleanUp();
-    System.out.println(onHeapCache.stats());
-    System.out.println(offHeapCache.stats());
 
-    LOG.trace("hits:  %,d misses : %,d\n", hits.sum(), misses.sum());
+    LOG.info("On Heap Cache Stats {}", onHeapCache.stats());
+    LOG.info("Off Heap Cache Stats {}", offHeapCache.stats());
 
     try {
       offHeapCache.close();
@@ -173,10 +247,5 @@ public class OhcBlockCache extends ConcurrentLoadingBlockCache implements BlockC
   @VisibleForTesting
   OHCacheStats getOffHeapStats() {
     return offHeapCache.stats();
-  }
-
-  @Override
-  protected int getMaxEntrySize() {
-    return (int) Math.min(Integer.MAX_VALUE, getMaxHeapSize());
   }
 }

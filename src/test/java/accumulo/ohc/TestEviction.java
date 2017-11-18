@@ -8,12 +8,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.accumulo.core.file.blockfile.cache.CacheEntry;
+import org.apache.accumulo.core.file.blockfile.cache.CacheEntry.Weighbable;
 import org.apache.accumulo.core.file.blockfile.cache.CacheType;
 import org.junit.After;
 import org.junit.Assert;
@@ -25,6 +26,16 @@ import com.google.common.collect.ImmutableMap;
 public class TestEviction {
 
   private OhcBlockCache obc;
+
+  static class TestIndex implements Weighbable {
+
+    AtomicInteger counter = new AtomicInteger(0);
+
+    @Override
+    public int weight() {
+      return 64;
+    }
+  }
 
   @Before
   public void setupCache() {
@@ -79,8 +90,8 @@ public class TestEviction {
     for (String fid : frequent) {
       CacheEntry ce = obc.getBlock(fid);
       Assert.assertNotNull(ce);
-      AtomicLong idx = ce.getIndex(() -> new AtomicLong(0));
-      idx.incrementAndGet();
+      TestIndex idx = ce.getIndex(() -> new TestIndex());
+      idx.counter.incrementAndGet();
     }
   }
 
@@ -115,9 +126,9 @@ public class TestEviction {
     for (String fid : frequent) {
       CacheEntry ce = obc.getBlock(fid);
       Assert.assertNotNull(ce);
-      AtomicLong idx = ce.getIndex(() -> null);
+      TestIndex idx = ce.getIndex(() -> null);
       Assert.assertNotNull(idx);
-      Assert.assertEquals(fcount, idx.get());
+      Assert.assertEquals(fcount, idx.counter.get());
     }
 
     for (Entry<String,byte[]> entry : blocks.entrySet()) {
