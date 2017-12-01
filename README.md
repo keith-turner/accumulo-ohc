@@ -8,7 +8,7 @@ off heap cache.
 Accumulo-OHC builds uses a new caching SPI introduced in Accumulo
 2.0.0-SNAPSHOT.  
 
-Below is an example of how to build this project and places the needed jars in
+Below is an example of how to build this project and place the needed jars in
 Accumulo's `lib/ext` directory.  This would need to be done on each tablet
 server.
 
@@ -75,11 +75,19 @@ The options `default|data|index|summary` determines the Accumulo cache
 instance. The options `off-heap|on-heap` determines if the `pass through prop`
 goes to Caffeine or OHC.
 
-For example the property
-`tserver.cache.ohc.data.on-heap.maximumWeight=1000000000` will pass
-`maximumWeight=1000000000` to Caffeine for the Accumulo data cache.  As another
-example `tserver.cache.ohc.data.off-heap.capacity=10000000000` will pass
-`capacity=10000000000` to OHC. 
+For example, the following property
+
+```
+tserver.cache.ohc.data.on-heap.maximumWeight=1000000000
+```
+ will pass `maximumWeight=1000000000` to Caffeine for the Accumulo data cache.  
+
+As another example,the following property  
+```
+tserver.cache.ohc.data.off-heap.capacity=10000000000
+```
+
+ will pass `capacity=10000000000` to OHC. 
 
 For documentation on what properties each cache implementation accepts see
 [OHCCacheBuilder][3] and [CaffeineSpec][4].
