@@ -24,12 +24,12 @@ this, would need to restart tablet servers.
 
 ```
 config -s tserver.cache.manager.class=accumulo.ohc.OhcCacheManager
-config -s tserver.cache.ohc.data.on-heap.maximumWeight=1000000000
-config -s tserver.cache.ohc.data.off-heap.capacity=10000000000
-config -s tserver.cache.ohc.index.on-heap.maximumWeight=100000000
-config -s tserver.cache.ohc.index.off-heap.capacity=1000000000
-config -s tserver.cache.ohc.summary.on-heap.maximumWeight=100000000
-config -s tserver.cache.ohc.summary.off-heap.capacity=10000000000
+config -s tserver.cache.config.ohc.data.on-heap.maximumWeight=1000000000
+config -s tserver.cache.config.ohc.data.off-heap.capacity=10000000000
+config -s tserver.cache.config.ohc.index.on-heap.maximumWeight=100000000
+config -s tserver.cache.config.ohc.index.off-heap.capacity=1000000000
+config -s tserver.cache.config.ohc.summary.on-heap.maximumWeight=100000000
+config -s tserver.cache.config.ohc.summary.off-heap.capacity=10000000000
 ```
 
 An alternative to configuring this cache in the shell is setting properties in
@@ -41,27 +41,27 @@ An alternative to configuring this cache in the shell is setting properties in
     <value>accumulo.ohc.OhcCacheManager</value>
   </property>
   <property>
-    <name>tserver.cache.ohc.data.on-heap.maximumWeight</name>
+    <name>tserver.cache.config.ohc.data.on-heap.maximumWeight</name>
     <value>1000000000</value>
   </property>
   <property>
-    <name>tserver.cache.ohc.data.off-heap.capacity</name>
+    <name>tserver.cache.config.ohc.data.off-heap.capacity</name>
     <value>10000000000</value>
   </property>
   <property>
-    <name>tserver.cache.ohc.index.on-heap.maximumWeight</name>
+    <name>tserver.cache.config.ohc.index.on-heap.maximumWeight</name>
     <value>100000000</value>
   </property>
   <property>
-    <name>tserver.cache.ohc.index.off-heap.capacity</name>
+    <name>tserver.cache.config.ohc.index.off-heap.capacity</name>
     <value>1000000000</value>
   </property>
   <property>
-    <name>tserver.cache.ohc.summary.on-heap.maximumWeight</name>
+    <name>tserver.cache.config.ohc.summary.on-heap.maximumWeight</name>
     <value>100000000</value>
   </property>
   <property>
-    <name>tserver.cache.ohc.summary.off-heap.capacity</name>
+    <name>tserver.cache.config.ohc.summary.off-heap.capacity</name>
     <value>10000000000</value>
   </property>
 ```
@@ -70,7 +70,7 @@ This cache uses a pass through strategy for configuration, properties are
 passed through to Caffeine and OHC.  Properties are of the form 
 
 ```
-tserver.cache.ohc.[default|data|index|summary].[off-heap|on-heap].<pass through prop>
+tserver.cache.config.ohc.[default|data|index|summary].[off-heap|on-heap].<pass through prop>
 ```  
 
 The options `default|data|index|summary` determines the Accumulo cache
@@ -80,13 +80,13 @@ goes to Caffeine or OHC.
 For example, the following property
 
 ```
-tserver.cache.ohc.data.on-heap.maximumWeight=1000000000
+tserver.cache.config.ohc.data.on-heap.maximumWeight=1000000000
 ```
  will pass `maximumWeight=1000000000` to Caffeine for the Accumulo data cache.  
 
 As another example,the following property  
 ```
-tserver.cache.ohc.data.off-heap.capacity=10000000000
+tserver.cache.config.ohc.data.off-heap.capacity=10000000000
 ```
 
  will pass `capacity=10000000000` to OHC. 

@@ -14,20 +14,18 @@ public class OhcCacheConfiguration {
   public static final String ON_HEAP_PREFIX = "on-heap.";
   public static final String OFF_HEAP_PREFIX = "off-heap.";
 
-  private final Map<String,String> offHeapProps;
-  private final Map<String,String> onHeapProps;
+  private final Map<String, String> offHeapProps;
+  private final Map<String, String> onHeapProps;
 
   private final long maxSize;
   private final long blockSize;
 
   public OhcCacheConfiguration(Configuration conf, CacheType type) {
 
-    Map<String,String> allProps = conf.getProperties(PROPERTY_PREFIX, type);
+    Map<String, String> allProps = conf.getProperties(PROPERTY_PREFIX, type);
 
-    Map<String,String> onHeapProps = new HashMap<>();
-    Map<String,String> offHeapProps = new HashMap<>();
-
-    System.out.println("all props " + allProps);
+    Map<String, String> onHeapProps = new HashMap<>();
+    Map<String, String> offHeapProps = new HashMap<>();
 
     allProps.forEach((k, v) -> {
       if (k.startsWith(ON_HEAP_PREFIX)) {
@@ -44,17 +42,17 @@ public class OhcCacheConfiguration {
     this.blockSize = conf.getBlockSize();
   }
 
-  public Map<String,String> getOffHeapProperties() {
+  public Map<String, String> getOffHeapProperties() {
     return offHeapProps;
   }
 
-  public Map<String,String> getOnHeapProperties() {
+  public Map<String, String> getOnHeapProperties() {
     return onHeapProps;
   }
 
   @Override
   public String toString() {
-    return super.toString() + "OnHeapProps:" + onHeapProps + "  offHeapProps:" + offHeapProps;
+    return "OnHeapProps:" + onHeapProps + "  offHeapProps:" + offHeapProps;
   }
 
   public long getMaxSize() {

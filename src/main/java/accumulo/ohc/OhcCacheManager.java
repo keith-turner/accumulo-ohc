@@ -21,7 +21,6 @@ public class OhcCacheManager extends BlockCacheManager {
   public void stop() {
     for (CacheType type : CacheType.values()) {
       OhcBlockCache obc = (OhcBlockCache) getBlockCache(type);
-      System.out.println("stopping " + type);
       obc.stop();
     }
 
