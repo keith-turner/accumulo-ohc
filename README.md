@@ -96,5 +96,5 @@ For documentation on what properties each cache implementation accepts see
 
 [1]: https://github.com/ben-manes/caffeine
 [2]: https://github.com/snazy/ohc
-[3]: https://github.com/snazy/ohc/blob/0.6.1/ohc-core/src/main/java/org/caffinitas/ohc/OHCacheBuilder.java
+[3]: https://static.javadoc.io/org.caffinitas.ohc/ohc-core/0.6.1/org/caffinitas/ohc/OHCacheBuilder.html
 [4]: https://static.javadoc.io/com.github.ben-manes.caffeine/caffeine/2.6.0/com/github/benmanes/caffeine/cache/CaffeineSpec.html
