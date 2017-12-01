@@ -1,9 +1,11 @@
 # accumulo-ohc
 
 Accumulo-OHC is a custom cache implementation for Accumulo that builds on
-[Caffeine][1] and [OHC][2].  Caffeine is used caching frequently used block on
-the Java heap.  OHC is used for caching less frequently used blocks in a larger
-off heap cache.
+[Caffeine][1] and [OHC][2].  Caffeine is used for caching frequently accessed
+blocks on the Java heap.  OHC is used for caching less frequently accessed
+blocks in a larger off Java heap cache.  The reason to do this to avoid the
+Java garbage collector.  This cache has been test with 1 billion key values all
+stored in a 4GB on-heap + 40GB off-heap cache.
 
 Accumulo-OHC builds uses a new caching SPI introduced in Accumulo
 2.0.0-SNAPSHOT.  
