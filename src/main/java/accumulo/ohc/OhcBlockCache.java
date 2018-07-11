@@ -8,9 +8,9 @@ import java.util.Map.Entry;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import org.apache.accumulo.core.file.blockfile.cache.BlockCache;
-import org.apache.accumulo.core.file.blockfile.cache.CacheEntry;
 import org.apache.accumulo.core.file.blockfile.cache.impl.ClassSize;
+import org.apache.accumulo.core.spi.cache.BlockCache;
+import org.apache.accumulo.core.spi.cache.CacheEntry;
 import org.caffinitas.ohc.OHCache;
 import org.caffinitas.ohc.OHCacheBuilder;
 import org.caffinitas.ohc.OHCacheStats;
@@ -120,7 +120,7 @@ public class OhcBlockCache implements BlockCache {
     }
 
     @Override
-    public <T extends Weighbable> T getIndex(Supplier<T> supplier) {
+    public <T extends Weighable> T getIndex(Supplier<T> supplier) {
       return block.getIndex(supplier);
     }
 

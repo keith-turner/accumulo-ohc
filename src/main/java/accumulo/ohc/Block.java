@@ -2,14 +2,14 @@ package accumulo.ohc;
 
 import java.util.function.Supplier;
 
-import org.apache.accumulo.core.file.blockfile.cache.CacheEntry.Weighbable;
 import org.apache.accumulo.core.file.blockfile.cache.impl.ClassSize;
 import org.apache.accumulo.core.file.blockfile.cache.impl.SizeConstants;
+import org.apache.accumulo.core.spi.cache.CacheEntry.Weighable;
 
 final class Block {
 
   private final byte[] buffer;
-  private Weighbable index;
+  private Weighable index;
   private volatile int lastIndexWeight;
 
   Block(byte[] buffer) {
@@ -27,7 +27,7 @@ final class Block {
   }
 
   @SuppressWarnings("unchecked")
-  public synchronized <T extends Weighbable> T getIndex(Supplier<T> supplier) {
+  public synchronized <T extends Weighable> T getIndex(Supplier<T> supplier) {
     if (index == null) {
       index = supplier.get();
     }

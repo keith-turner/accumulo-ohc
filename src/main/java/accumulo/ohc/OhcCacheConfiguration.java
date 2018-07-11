@@ -4,8 +4,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.accumulo.core.file.blockfile.cache.BlockCacheManager.Configuration;
-import org.apache.accumulo.core.file.blockfile.cache.CacheType;
+import org.apache.accumulo.core.spi.cache.BlockCacheManager.Configuration;
+import org.apache.accumulo.core.spi.cache.CacheType;
 
 public class OhcCacheConfiguration {
 

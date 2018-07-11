@@ -1,8 +1,8 @@
 package accumulo.ohc;
 
-import org.apache.accumulo.core.file.blockfile.cache.BlockCache;
-import org.apache.accumulo.core.file.blockfile.cache.BlockCacheManager;
-import org.apache.accumulo.core.file.blockfile.cache.CacheType;
+import org.apache.accumulo.core.spi.cache.BlockCache;
+import org.apache.accumulo.core.spi.cache.BlockCacheManager;
+import org.apache.accumulo.core.spi.cache.CacheType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

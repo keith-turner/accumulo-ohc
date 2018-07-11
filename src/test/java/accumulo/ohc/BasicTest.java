@@ -3,7 +3,7 @@ package accumulo.ohc;
 import static accumulo.ohc.OhcCacheConfiguration.OFF_HEAP_PREFIX;
 import static accumulo.ohc.OhcCacheConfiguration.ON_HEAP_PREFIX;
 
-import org.apache.accumulo.core.file.blockfile.cache.CacheType;
+import org.apache.accumulo.core.spi.cache.CacheType;
 import org.junit.Assert;
 import org.junit.Test;
 

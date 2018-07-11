@@ -2,8 +2,8 @@ package accumulo.ohc;
 
 import java.util.Map;
 
-import org.apache.accumulo.core.file.blockfile.cache.CacheType;
-import org.apache.accumulo.core.file.blockfile.cache.BlockCacheManager.Configuration;
+import org.apache.accumulo.core.spi.cache.BlockCacheManager.Configuration;
+import org.apache.accumulo.core.spi.cache.CacheType;
 import org.junit.Assert;
 
 public class TestConfiguration implements Configuration {

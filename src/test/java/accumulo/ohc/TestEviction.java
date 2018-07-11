@@ -13,9 +13,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.accumulo.core.file.blockfile.cache.CacheEntry;
-import org.apache.accumulo.core.file.blockfile.cache.CacheEntry.Weighbable;
-import org.apache.accumulo.core.file.blockfile.cache.CacheType;
+import org.apache.accumulo.core.spi.cache.CacheEntry;
+import org.apache.accumulo.core.spi.cache.CacheEntry.Weighable;
+import org.apache.accumulo.core.spi.cache.CacheType;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -27,7 +27,7 @@ public class TestEviction {
 
   private OhcBlockCache obc;
 
-  static class TestIndex implements Weighbable {
+  static class TestIndex implements Weighable {
 
     AtomicInteger counter = new AtomicInteger(0);
 
