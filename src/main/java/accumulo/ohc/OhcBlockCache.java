@@ -35,6 +35,8 @@ public class OhcBlockCache implements BlockCache {
 
   private final long onHeapSize;
 
+  private final String cacheType;
+
   OhcBlockCache(final OhcCacheConfiguration config) {
 
     config.getOffHeapProperties().forEach((k, v) -> {
@@ -84,6 +86,8 @@ public class OhcBlockCache implements BlockCache {
         return new Block(buffer);
       }
     });
+
+    cacheType = config.getType().name();
   }
 
   @Override
@@ -199,16 +203,22 @@ public class OhcBlockCache implements BlockCache {
     return offHeapCache.capacity() + onHeapSize;
   }
 
+  public void logStats() {
+    LOG.info("On  Heap Cache Stats {} {}", cacheType, onHeapCache.stats());
+    LOG.info("Off Heap Cache Stats {} {}", cacheType, offHeapCache.stats());
+  }
+
   @Override
   public Stats getStats() {
 
     CacheStats stats = onHeapCache.stats();
+    OHCacheStats offStats = offHeapCache.stats();
 
     return new Stats() {
 
       @Override
       public long hitCount() {
-        return stats.hitCount();
+        return stats.hitCount() + offStats.getHitCount();
       }
 
       @Override
@@ -223,8 +233,7 @@ public class OhcBlockCache implements BlockCache {
     onHeapCache.invalidateAll();
     onHeapCache.cleanUp();
 
-    LOG.info("On Heap Cache Stats {}", onHeapCache.stats());
-    LOG.info("Off Heap Cache Stats {}", offHeapCache.stats());
+    logStats();
 
     try {
       offHeapCache.close();

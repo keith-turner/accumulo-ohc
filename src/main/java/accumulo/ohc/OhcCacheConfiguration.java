@@ -3,6 +3,7 @@ package accumulo.ohc;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.accumulo.core.spi.cache.BlockCacheManager.Configuration;
 import org.apache.accumulo.core.spi.cache.CacheType;
@@ -14,14 +15,17 @@ public class OhcCacheConfiguration {
   public static final String ON_HEAP_PREFIX = "on-heap.";
   public static final String OFF_HEAP_PREFIX = "off-heap.";
 
+  public static final String LOG_INTERVAL_PROP = "logInterval";
+
   private final Map<String, String> offHeapProps;
   private final Map<String, String> onHeapProps;
 
   private final long maxSize;
   private final long blockSize;
+  private final CacheType type;
+  private final String logInterval;
 
   public OhcCacheConfiguration(Configuration conf, CacheType type) {
-
     Map<String, String> allProps = conf.getProperties(PROPERTY_PREFIX, type);
 
     Map<String, String> onHeapProps = new HashMap<>();
@@ -40,6 +44,8 @@ public class OhcCacheConfiguration {
 
     this.maxSize = conf.getMaxSize(type);
     this.blockSize = conf.getBlockSize();
+    this.logInterval = allProps.get(LOG_INTERVAL_PROP);
+    this.type = type;
   }
 
   public Map<String, String> getOffHeapProperties() {
@@ -61,5 +67,13 @@ public class OhcCacheConfiguration {
 
   public long getBlockSize() {
     return blockSize;
+  }
+
+  public CacheType getType() {
+    return type;
+  }
+
+  public Long getLogInterval(TimeUnit unit) {
+    return logInterval == null ? null : unit.convert(Long.valueOf(logInterval), TimeUnit.SECONDS);
   }
 }

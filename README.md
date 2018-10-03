@@ -24,6 +24,7 @@ this, would need to restart tablet servers.
 
 ```
 config -s tserver.cache.manager.class=accumulo.ohc.OhcCacheManager
+config -s tserver.cache.config.ohc.default.logInterval=30
 config -s tserver.cache.config.ohc.data.on-heap.maximumWeight=1000000000
 config -s tserver.cache.config.ohc.data.off-heap.capacity=10000000000
 config -s tserver.cache.config.ohc.index.on-heap.maximumWeight=100000000
@@ -33,37 +34,17 @@ config -s tserver.cache.config.ohc.summary.off-heap.capacity=10000000000
 ```
 
 An alternative to configuring this cache in the shell is setting properties in
-`accumulo-site.xml`.  Below is an example of that.
+`accumulo.properties`.  Below is an example of that.
 
-```xml
-  <property>
-    <name>tserver.cache.manager.class</name>
-    <value>accumulo.ohc.OhcCacheManager</value>
-  </property>
-  <property>
-    <name>tserver.cache.config.ohc.data.on-heap.maximumWeight</name>
-    <value>1000000000</value>
-  </property>
-  <property>
-    <name>tserver.cache.config.ohc.data.off-heap.capacity</name>
-    <value>10000000000</value>
-  </property>
-  <property>
-    <name>tserver.cache.config.ohc.index.on-heap.maximumWeight</name>
-    <value>100000000</value>
-  </property>
-  <property>
-    <name>tserver.cache.config.ohc.index.off-heap.capacity</name>
-    <value>1000000000</value>
-  </property>
-  <property>
-    <name>tserver.cache.config.ohc.summary.on-heap.maximumWeight</name>
-    <value>100000000</value>
-  </property>
-  <property>
-    <name>tserver.cache.config.ohc.summary.off-heap.capacity</name>
-    <value>10000000000</value>
-  </property>
+```
+tserver.cache.manager.class=accumulo.ohc.OhcCacheManager
+tserver.cache.config.ohc.default.logInterval=30
+tserver.cache.config.ohc.data.on-heap.maximumWeight=1000000000
+tserver.cache.config.ohc.data.off-heap.capacity=10000000000
+tserver.cache.config.ohc.index.on-heap.maximumWeight=100000000
+tserver.cache.config.ohc.index.off-heap.capacity=1000000000
+tserver.cache.config.ohc.summary.on-heap.maximumWeight=100000000
+tserver.cache.config.ohc.summary.off-heap.capacity=10000000000
 ```
 
 This cache uses a pass through strategy for configuration, properties are
@@ -76,6 +57,7 @@ tserver.cache.config.ohc.[default|data|index|summary].[off-heap|on-heap].<pass t
 The options `default|data|index|summary` determines the Accumulo cache
 instance. The options `off-heap|on-heap` determines if the `pass through prop`
 goes to Caffeine or OHC.
+
 
 For example, the following property
 
@@ -94,7 +76,16 @@ tserver.cache.config.ohc.data.off-heap.capacity=10000000000
 For documentation on what properties each cache implementation accepts see
 [OHCCacheBuilder][3] and [CaffeineSpec][4].
 
+Additionally a property can be set to periodcally log stats for each cache.
+The value for this is seconds. By default no logging is done.  The property is
+of the form :
+
+```
+tserver.cache.config.ohc.[default|data|index|summary].logInterval=<seconds>
+```
+
+
 [1]: https://github.com/ben-manes/caffeine
 [2]: https://github.com/snazy/ohc
-[3]: https://static.javadoc.io/org.caffinitas.ohc/ohc-core/0.6.1/org/caffinitas/ohc/OHCacheBuilder.html
-[4]: https://static.javadoc.io/com.github.ben-manes.caffeine/caffeine/2.6.0/com/github/benmanes/caffeine/cache/CaffeineSpec.html
+[3]: https://static.javadoc.io/org.caffinitas.ohc/ohc-core/0.7.0/org/caffinitas/ohc/OHCacheBuilder.html
+[4]: https://static.javadoc.io/com.github.ben-manes.caffeine/caffeine/2.6.2/com/github/benmanes/caffeine/cache/CaffeineSpec.html
