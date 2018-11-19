@@ -4,7 +4,7 @@
   <artifactId>accumulo-ohc</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <properties>
-    <accumulo.version>2.0.0-SNAPSHOT</accumulo.version>
+    <accumulo.version>2.0.0-alpha-1</accumulo.version>
   </properties>
   <build>
     <plugins>
