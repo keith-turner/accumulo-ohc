@@ -14,14 +14,16 @@ import org.apache.accumulo.core.spi.cache.CacheEntry;
 import org.caffinitas.ohc.OHCache;
 import org.caffinitas.ohc.OHCacheBuilder;
 import org.caffinitas.ohc.OHCacheStats;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.benmanes.caffeine.cache.CacheLoader;
-import com.github.benmanes.caffeine.cache.CacheWriter;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.RemovalCause;
+import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.github.benmanes.caffeine.cache.Weigher;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.annotations.VisibleForTesting;
@@ -61,14 +63,10 @@ public class OhcBlockCache implements BlockCache {
       int keyWeight = ClassSize.align(blockName.length()) + ClassSize.STRING;
       return keyWeight + block.weight();
     };
-    onHeapCache = Caffeine.from(specification).weigher(weigher).writer(new CacheWriter<String,Block>() {
+    onHeapCache = Caffeine.from(specification).weigher(weigher).evictionListener(new RemovalListener<String,Block>(){
       @Override
-      public void write(String key, Block value) {
-        // don't write to the off-heap cache
-      }
-
-      @Override
-      public void delete(String key, Block block, RemovalCause cause) {
+      public void onRemoval(@Nullable String key, @Nullable Block block,
+          @NonNull RemovalCause cause) {
         // this is called before the entry is actually removed from the cache
         if (cause.wasEvicted()) {
           LOG.trace("Block {} evicted from on-heap cache, putting to off-heap cache", key);
